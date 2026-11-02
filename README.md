@@ -1,4 +1,4 @@
-# pi-open-links
+# @ezpk/pi-open-links
 
 Extension [Pi Agent](https://pi-docs.xyz/) : les **fichiers**, **dossiers** et
 **URL** affichés en clair dans le chat deviennent des hyperliens cliquables —
@@ -21,7 +21,7 @@ C'est un package **Pi** : installation en une commande, découverte dans la
 pi install git:github.com/EZPK/pi-open-links@v1.0.0
 
 # Depuis npm :
-pi install npm:pi-open-links@1.0.0
+pi install npm:@ezpk/pi-open-links@1.0.0
 
 # Local (développement) :
 pi install /chemin/vers/pi-open-links
