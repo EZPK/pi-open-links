@@ -1,0 +1,44 @@
+{
+  "name": "pi-open-links",
+  "version": "1.0.0",
+  "description": "Rend cliquables les chemins de fichiers, dossiers et URL affichés en clair dans le chat Pi Agent : fichier -> éditeur (nvim), dossier -> tree de l'éditeur, URL -> navigateur.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-agent",
+    "extension",
+    "markdown",
+    "links",
+    "neovim",
+    "editor",
+    "omarchy"
+  ],
+  "author": "EZPK",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EZPK/pi-open-links.git"
+  },
+  "homepage": "https://github.com/EZPK/pi-open-links",
+  "bugs": {
+    "url": "https://github.com/EZPK/pi-open-links/issues"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test src/markdown.test.ts",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  }
+}
