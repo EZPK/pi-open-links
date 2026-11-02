@@ -31,7 +31,9 @@ function openInEditor(target: string): void {
 
 export default function (pi: ExtensionAPI) {
   // 1. Chemins/URL nus du chat → liens cliquables (checkExists : jamais de
-  //    lien vers un fichier absent sur la machine).
+  //    lien vers un fichier absent sur la machine). Les cibles locales sont
+  //    en file:// : Pi ouvre lui-même les liens OSC 8 au simple clic via
+  //    xdg-open (les associations MIME routent file:// vers l'éditeur).
   pi.registerMarkdownTransformer(createMarkdownTransformer());
 
   // 2. Commande directe pi → éditeur.

@@ -7,11 +7,20 @@
 //
 // Règles :
 //  - URL nues  https://…          →  [url](url)
-//  - chemins absolus  /foo/bar    →  [/foo/bar](/foo/bar)   (xdg-open local)
+//  - chemins absolus  /foo/bar    →  [/foo/bar](file:///foo/bar)
 //  - chemins maison  ~/foo         →  [~/foo](file://$HOME/foo)
-//  - blocs de code (fences), code inline (`…`), liens/autoliens markdown
-//    existants : intouchés.
+//  - code inline (`…`) : son contenu est linkifié aussi (le backtick cède la
+//    place au lien), pour que `/etc/hostname` ou `https://…` dans du code
+//    inline restent cliquables — c'est un choix assumé de l'utilisateur.
+//  - blocs de code (fences ```…```), liens/autoliens markdown existants :
+//    intouchés.
 //  - dates « 2026/11/02 » : pas un chemin → non liées.
+//
+// Cibles locales toujours en file:// : c'est l'URI que xdg-open sait ouvrir
+// vers l'éditeur via les associations MIME (scripts/setup-mime.sh), et que
+// Pi ouvre lui-même au simple clic. Un chemin nu (/foo/bar) n'étant pas une
+// URI valide, xdg-open et les multiplexeurs peuvent le laisser retomber sur
+// le navigateur.
 //
 // Limite assumée : un chemin contenant des espaces (ex. « Ma Synchro/ ») est
 // tronqué au premier espace et ne peut pas être lié fidèlement. Avec
@@ -71,6 +80,18 @@ function trimTail(token: string): string {
   return token.replace(/[.,;:!?)\]}"'»]+$/, "");
 }
 
+// Encodage par segment d'un chemin local : les caractères que la syntaxe URI
+// avalerait (#, %, ?, espace…) restent dans la cible, décodés par l'ouvreur
+// au lieu d'être interprétés comme fragment ou query.
+function encodePath(localPath: string): string {
+  return localPath.split("/").map(encodeURIComponent).join("/");
+}
+
+// Chemin local → URI file:// sûre (ouverte par xdg-open / Pi en éditeur).
+function toFileUri(localPath: string): string {
+  return `file://${encodePath(localPath)}`;
+}
+
 // Même source de vérité que /nvim (index.ts) : node:os.homedir().
 function expandHome(path: string): string {
   const home = homedir();
@@ -96,36 +117,48 @@ export function linkifyFilePaths(markdown: string, options: LinkifyOptions = {})
     return key;
   };
 
-  const text = markdown
-    .replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/g, protect)
-    .replace(/`[^`\n]+`/g, protect)
-    .replace(/!?\[[^\]]*\]\([^)\n]+\)/g, protect)
-    .replace(/<[^\s<>]+>/g, protect);
-
-  const linked = text.replace(CANDIDATE_RE, (raw) => {
+  // La « pass » de linkification proprement dite, réutilisée pour le corps du
+  // texte et pour le contenu du code inline.
+  const linkifyTokens = (raw: string): string => {
     const { token, tail } = splitToken(raw);
     if (token.length < 4 || token.includes(" ") || DATE_LIKE.test(token)) {
       return raw;
     }
 
     let href = "";
+    let localPath: string | null = null;
     if (opts.urls && /^https?:\/\//.test(token)) {
       href = token;
     } else if (opts.tildePaths && token.startsWith("~/")) {
-      const home = expandHome(token);
-      if (home) href = `file://${home}`;
+      localPath = expandHome(token);
+      if (localPath) href = toFileUri(localPath);
     } else if (opts.absolutePaths && token.startsWith("/") && looksLikeFilePath(token)) {
-      href = token;
+      localPath = token;
+      href = toFileUri(token);
     }
     // checkExists : un chemin local inexistant (fragment tronqué par un
     // espace, fichier pas encore créé) n'est pas lié — cohérent avec /nvim.
+    // Le test porte sur le chemin décodé, pas sur l'URI file:// encodée.
     // Les URL http(s) ne sont jamais soumises au test d'existence local.
-    const isLocalTarget = href.startsWith("/") || href.startsWith("file://");
-    if (href && isLocalTarget && opts.checkExists && !existsSync(stripAnchor(href))) {
+    if (href && localPath && opts.checkExists && !existsSync(localPath)) {
       href = "";
     }
     return href ? `[${token}](${href})${tail}` : raw;
-  });
+  };
+
+  const text = markdown
+    .replace(/```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)/g, protect)
+    .replace(/!?\[[^\]]*\]\([^)\n]+\)/g, protect)
+    .replace(/<[^\s<>]+>/g, protect)
+    // Code inline : son contenu est linkifié ; si ça produit un lien, les
+    // backticks cèdent la place (le markdown ne permet pas un lien *dans* un
+    // span de code), sinon le span est conservé tel quel.
+    .replace(/`([^`\n]+)`/g, (whole, code: string) => {
+      const linked = code.replace(CANDIDATE_RE, linkifyTokens);
+      return linked === code ? whole : protect(linked);
+    });
+
+  const linked = text.replace(CANDIDATE_RE, linkifyTokens);
 
   return linked.replace(/\u0002QCL\d+\u0002/g, (key) => placeholders.get(key) ?? "");
 }
@@ -133,12 +166,9 @@ export function linkifyFilePaths(markdown: string, options: LinkifyOptions = {})
 // Compatible avec pi.registerMarkdownTransformer.
 // L'extension active checkExists : un lien ne doit jamais ouvrir un fichier
 // qui n'existe pas sur cette machine.
-export function createMarkdownTransformer(): (markdown: string) => string {
-  return (markdown: string) => linkifyFilePaths(markdown, { checkExists: true });
-}
-
-// Cible `file://…` ou nue, éventuellement porteuse d'un fragment `#` : sans
-// objet côté disque, on le retire avant le test d'existence.
-function stripAnchor(target: string): string {
-  return target.replace(/^file:\/\//, "").split("#")[0];
+export function createMarkdownTransformer(
+  options: LinkifyOptions = {}
+): (markdown: string) => string {
+  return (markdown: string) =>
+    linkifyFilePaths(markdown, { checkExists: true, ...options });
 }

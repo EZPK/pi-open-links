@@ -15,10 +15,10 @@ test("URL nue devient un lien, ponctuation dehors", () => {
   );
 });
 
-test("chemin absolu devient un lien", () => {
+test("chemin absolu devient un lien file://", () => {
   assert.equal(
     linkifyFilePaths("fichier /etc/hostname ici"),
-    "fichier [/etc/hostname](/etc/hostname) ici"
+    "fichier [/etc/hostname](file:///etc/hostname) ici"
   );
 });
 
@@ -47,7 +47,7 @@ test("autolien <…> intouché", () => {
 });
 
 test("ponctuation exclamative rejetée hors lien", () => {
-  assert.equal(linkifyFilePaths("/etc/fstab !"), "[/etc/fstab](/etc/fstab) !");
+  assert.equal(linkifyFilePaths("/etc/fstab !"), "[/etc/fstab](file:///etc/fstab) !");
 });
 
 test("chemin trop court ignoré", () => {
@@ -64,7 +64,7 @@ test("option absolutePaths=false désactive", () => {
 test("double occurrence traitée en un passage, sans nesting", () => {
   assert.equal(
     linkifyFilePaths("/etc/hostname /etc/fstab"),
-    "[/etc/hostname](/etc/hostname) [/etc/fstab](/etc/fstab)"
+    "[/etc/hostname](file:///etc/hostname) [/etc/fstab](file:///etc/fstab)"
   );
 });
 
@@ -87,17 +87,33 @@ test("chemin mono-segment /tmp n'est pas lié, /tmp/x.txt l'est", () => {
   assert.equal(linkifyFilePaths("/tmp"), "/tmp");
   assert.equal(
     linkifyFilePaths("/tmp/x.txt"),
-    "[/tmp/x.txt](/tmp/x.txt)"
+    "[/tmp/x.txt](file:///tmp/x.txt)"
   );
 });
 
-test("code inline (backticks) avec chemin reste intact", () => {
-  const src = "echo `/etc/passwd`";
-  assert.equal(linkifyFilePaths(src), src);
+test("code inline : le chemin entre backticks devient un lien", () => {
+  assert.equal(
+    linkifyFilePaths("echo `/etc/passwd`"),
+    "echo [/etc/passwd](file:///etc/passwd)"
+  );
 });
 
-test("code inline (backticks) avec URL reste intact", () => {
-  const src = "voir `https://example.com/x` ici";
+test("code inline : l'URL entre backticks devient un lien", () => {
+  assert.equal(
+    linkifyFilePaths("voir `https://example.com/x` ici"),
+    "voir [https://example.com/x](https://example.com/x) ici"
+  );
+});
+
+test("code inline : ~/ entre backticks devient un lien file://", () => {
+  assert.equal(
+    linkifyFilePaths("fichier `~/.bashrc`"),
+    `fichier [~/.bashrc](file://${HOME}/.bashrc)`
+  );
+});
+
+test("code inline sans chemin reste intact", () => {
+  const src = "la commande `echo bonjour` fonctionne";
   assert.equal(linkifyFilePaths(src), src);
 });
 
@@ -114,7 +130,7 @@ test("chemin avec espaces : fragments inexistants non liés (checkExists)", () =
 test("checkExists lie un chemin existant et refuse un chemin absent", () => {
   assert.equal(
     linkifyFilePaths("/etc/hostname", { checkExists: true }),
-    "[/etc/hostname](/etc/hostname)"
+    "[/etc/hostname](file:///etc/hostname)"
   );
   const absent = "/etc/aucun-fichier-xyz-exemple";
   assert.equal(linkifyFilePaths(absent, { checkExists: true }), absent);
@@ -123,7 +139,7 @@ test("checkExists lie un chemin existant et refuse un chemin absent", () => {
 test("checkExists n'a pas d'effet sans option ni sur les URL", () => {
   assert.equal(
     linkifyFilePaths("/etc/aucun-fichier-xyz-exemple"),
-    "[/etc/aucun-fichier-xyz-exemple](/etc/aucun-fichier-xyz-exemple)"
+    "[/etc/aucun-fichier-xyz-exemple](file:///etc/aucun-fichier-xyz-exemple)"
   );
   assert.equal(
     linkifyFilePaths("voir https://example.com/x", { checkExists: true }),
@@ -131,9 +147,19 @@ test("checkExists n'a pas d'effet sans option ni sur les URL", () => {
   );
 });
 
+test("caractère # encodé dans la cible file://", () => {
+  // Le '#', sinon avalé comme fragment, est encodé %23 dans l'URI.
+  assert.equal(
+    linkifyFilePaths("rapport /tmp/a#b.md"),
+    "rapport [/tmp/a#b.md](file:///tmp/a%23b.md)"
+  );
+});
+
+
+
 test("createMarkdownTransformer active checkExists", () => {
   const transform = createMarkdownTransformer();
   const absent = "/etc/aucun-fichier-xyz-exemple";
   assert.equal(transform(absent), absent);
-  assert.equal(transform("/etc/hostname"), "[/etc/hostname](/etc/hostname)");
+  assert.equal(transform("/etc/hostname"), "[/etc/hostname](file:///etc/hostname)");
 });
