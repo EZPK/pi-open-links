@@ -1,0 +1,31 @@
+# pi-open-links — plugin herdr : rendre les cibles file:// Ctrl+cliquables.
+#
+# herdr ne route vers les plugins que les liens qu'il accepte lui-même au
+# Ctrl+clic. La version 0.8.2 n'accepte que http(s) (safe_web_url) : un lien
+# OSC 8 file:// y est donc ignoré, AUSSI pour les plugins. Le fix herdr #2942
+# (livré en 0.9.0) fait passer les URI file:// aux plugins : c'est la version
+# minimale d'utilité réelle de ce handler.
+#
+# Gestes :
+#   - Ctrl+clic sur un nom de fichier/dossier du chat pi → ce handler :
+#     ouverture dans un panneau (split herdr) via scripts/open-file-panel.sh.
+#   - Clic simple → Pi lui-même ouvre le lien via xdg-open (indépendant de
+#     ce plugin, fonctionne même sous herdr 0.8.2).
+id = "local.pi-open-links"
+name = "pi-open-links open file"
+version = "1.1.0"
+min_herdr_version = "0.8.2"
+description = "Ctrl+clic sur un lien file://… du chat pi-open-links : ouvre le fichier/dossier dans l'éditeur (panneau herdr ≥ 0.9, sinon fenêtre)"
+platforms = ["linux"]
+
+[[actions]]
+id = "open"
+title = "Ouvrir dans l'éditeur (panneau si herdr)"
+contexts = ["global"]
+command = ["bash", "open-file.sh"]
+
+[[link_handlers]]
+id = "file-uri"
+title = "Ouvrir file:// dans l'éditeur"
+pattern = "^file://"
+action = "open"

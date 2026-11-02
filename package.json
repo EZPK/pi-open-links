@@ -1,6 +1,6 @@
 {
   "name": "@ezpk/pi-open-links",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Rend cliquables les chemins de fichiers, dossiers et URL affichés en clair dans le chat Pi Agent : fichier -> éditeur (nvim), dossier -> tree de l'éditeur, URL -> navigateur.",
   "type": "module",
   "license": "MIT",
@@ -26,6 +26,7 @@
   "files": [
     "src",
     "scripts",
+    "herdr-plugin",
     "README.md",
     "LICENSE"
   ],

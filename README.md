@@ -18,10 +18,10 @@ C'est un package **Pi** : installation en une commande, découverte dans la
 
 ```bash
 # Depuis un dépôt git (recommandé) :
-pi install git:github.com/EZPK/pi-open-links@v1.0.0
+pi install git:github.com/EZPK/pi-open-links@v1.1.0
 
 # Depuis npm :
-pi install npm:@ezpk/pi-open-links@1.0.0
+pi install npm:@ezpk/pi-open-links@1.1.0
 
 # Local (développement) :
 pi install /chemin/vers/pi-open-links
@@ -87,11 +87,39 @@ affiche ne concerne que ses URL de partage/authentification, pas le transcript.
    `terminal.hyperlinks: true` dans les réglages de Pi
    (`~/.pi/agent/settings.json`) ou exportez `PI_HYPERLINKS=1`, sinon Pi
    n'émet aucun lien cliquable.
-2. **Le simple clic est transmis à Pi et suffit.** herdr n'intercepte que le
-   **Ctrl+clic** (liens du pane → plugin/navigateur) ; un clic simple est
-   transmis au pane tel quel, Pi l'ouvre alors via `xdg-open`. Le Ctrl+clic
-   sur `file://` ne fonctionne qu'à partir de herdr 0.9.0 (routage vers les
-   plugins, #2942) — inutile pour l'usage normal : gardez le clic simple.
+2. **Deux gestes, deux acteurs** — vérifié dans les sources herdr 0.8.2 :
+
+   | Geste | Acteur | herdr 0.8.2 | herdr ≥ 0.9.0 |
+   |---|---|---|---|
+   | **Clic simple** (sans modif.) | Pi lui-même (`xdg-open`) | ✓ | ✓ |
+   | **Ctrl+clic** | herdr → plugin `^file://` (panneau) | ✗ (herdr ignore `file://` : `safe_web_url` n'accepte que http/https avant même de consulter les plugins) | ✓ (#2942) |
+
+   herdr 0.8.2 transmet bien les clics simples aux panes qui demandent la
+   souris (Pi), et Pi ouvre le lien lui-même. Le **clic simple** est donc le
+   geste à utiliser sous 0.8.2. Le **Ctrl+clic** ne fonctionne qu'à partir
+   de herdr 0.9.0, via le plugin fourni par ce package (voir ci-dessous).
+
+   Un clic doit presser et relâcher sur **exactement la même cellule** : un
+   micro-glissement avant le relâchement est interprété comme une sélection
+   par Pi, pas comme un clic.
+3. **Plugin herdr Ctrl+clic (facultatif).** `scripts/setup-herdr-plugin.sh`
+   enregistre `herdr-plugin/`, un plugin `link_handler` `^file://` qui ouvre
+   le fichier/dossier dans un **panneau** (même `open-file-panel.sh` que le
+   clic simple) :
+
+   ```bash
+   ./scripts/setup-herdr-plugin.sh            # lien + activation, idempotent
+   herdr plugin list | grep pi-open-links     # vérification
+   ./scripts/setup-herdr-plugin.sh --undo     # reverser
+   ```
+
+   Rien à faire si un autre plugin couvre déjà `^file://` (ex. `local.open-file`
+   pour Claude Code) — seul le premier match est invoqué, et le comportement
+   est le même (ouvrir le fichier).
+4. **Redémarrez pi après une mise à jour du package** (`/reload` ne recharge
+   pas le code des extensions déjà chargées dans la session en cours). Les
+   changements de l'extension ne s'appliquent qu'à un nouveau lancement de
+   pi.
 
 Vérifier une association :
 
@@ -127,9 +155,11 @@ fichier absent sur la machine.
 - **Code inline** : quand son contenu devient un lien, les backticks sont
   retirés (le markdown ne permet pas un lien *dans* un span de code) ;
   visuellement c'est un lien normal, plus du code.
-- **Sous herdr** : le Ctrl+clic n'ouvre les `file://` que sur herdr ≥ 0.9.0
-  et uniquement avec un plugin `link_handler` `^file://`. Préférez le simple
-  clic, géré par Pi lui-même.
+- **Sous herdr** : le **Ctrl+clic** n'ouvre les `file://` que sur herdr ≥ 0.9.0
+  (fix #2942) avec un plugin `link_handler` `^file://` (fourni par ce package,
+  `scripts/setup-herdr-plugin.sh`) ; sous herdr 0.8.2, herdr ignore `file://`
+  (`safe_web_url`, vérifié en source) — utilisez le simple clic, géré par Pi
+  lui-même, qui fonctionne à toutes les versions.
 - **Display-only** : l'extension n'ouvre rien elle-même ; c'est Pi qui traite
   le clic (`xdg-open`). Même niveau de confiance que de taper le chemin soi-même.
 
